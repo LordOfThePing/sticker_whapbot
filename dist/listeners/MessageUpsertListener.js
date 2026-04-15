@@ -112,13 +112,7 @@ var MessageUpsertListener = /*#__PURE__*/ function(Listener) {
                 var remoteJid = messageData.key.remoteJid || "";
                 var participant = messageData.key.participant || remoteJid;
                 var senderId = (participant || "").split("@")[0];
-                var isPrivateChat = remoteJid.endsWith("@s.whatsapp.net");
-                var wasKnown = this.client.safetyPolicy.isKnownContact(remoteJid);
                 this.client.safetyPolicy.markKnown(participant);
-                if (isPrivateChat && !wasKnown) {
-                    this.client.logger.info("Ignored command from unknown contact ".concat(remoteJid, " (now added to known list)."));
-                    return;
-                }
                 if (!(findMessage === null || findMessage === void 0 ? void 0 : findMessage.startsWith(PREFIX)) || !this.client.commands.isReady) return;
                 var evaluate = this.client.safetyPolicy.evaluateInbound(remoteJid, senderId, findMessage.toLowerCase());
                 if (!evaluate.allow) return;

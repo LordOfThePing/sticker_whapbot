@@ -155,15 +155,18 @@ function _ts_generator(thisArg, body) {
     }
 }
 import ImportURLToString from "#bajigur/utils/ImportURLToString.js";
-import { ISDEV } from "#bajigur/config.js";
+import { ISDEV, LOG_FILE_PATH, LOG_MAX_STRING_CHARS, FIRE_INIT_QUERIES } from "#bajigur/config.js";
+import { truncateForPino } from "#bajigur/utils/LogSanitize.js";
 import ThrottleQueue from "#bajigur/utils/ThrottleQueue.js";
 import SafetyPolicy from "#bajigur/utils/SafetyPolicy.js";
 import SafeSender from "#bajigur/utils/SafeSender.js";
 import { ListenerHandler } from "./Listener.js";
 import { CommandHandler } from "./Command.js";
-import { makeCacheableSignalKeyStore, makeWASocket, useMultiFileAuthState } from "@whiskeysockets/baileys";
+import { fetchLatestWaWebVersion, makeCacheableSignalKeyStore, makeWASocket, useMultiFileAuthState } from "@whiskeysockets/baileys";
 import { pino } from "pino";
+import { createRequire } from "module";
 import { resolve } from "path";
+var nodeRequire = createRequire(import.meta.url);
 var BajigurClient = /*#__PURE__*/ function() {
     "use strict";
     function BajigurClient() {
@@ -173,6 +176,27 @@ var BajigurClient = /*#__PURE__*/ function() {
         _define_property(this, "throttleQueue", void 0);
         _define_property(this, "safetyPolicy", void 0);
         _define_property(this, "safeSender", void 0);
+        var logTargets = [
+            {
+                target: "pino-pretty",
+                level: ISDEV ? "debug" : "info",
+                options: {
+                    translateTime: "SYS:yyyy-mm-dd HH:MM:ss",
+                    singleLine: true
+                }
+            }
+        ];
+        if (LOG_FILE_PATH && LOG_FILE_PATH.length) {
+            logTargets.push({
+                target: "pino/file",
+                level: ISDEV ? "debug" : "info",
+                options: {
+                    destination: LOG_FILE_PATH,
+                    append: true,
+                    mkdir: true
+                }
+            });
+        }
         _define_property(this, "logger", pino({
             name: "Bajigur",
             formatters: {
@@ -184,16 +208,36 @@ var BajigurClient = /*#__PURE__*/ function() {
             },
             level: ISDEV ? "debug" : "info",
             timestamp: true,
-            transport: {
-                targets: [
-                    {
-                        target: "pino-pretty",
-                        level: ISDEV ? "debug" : "info",
-                        options: {
-                            translateTime: "SYS:yyyy-mm-dd HH:MM:ss"
+            hooks: {
+                logMethod: function logMethod(args, method, level) {
+                    var a = Array.prototype.slice.call(args);
+                    var first = a.length >= 2 ? a[0] : undefined;
+                    if (first !== null && first !== undefined && typeof first === "object" && !Buffer.isBuffer(first)) {
+                        var copy = truncateForPino(first, LOG_MAX_STRING_CHARS, 0, 8, new WeakSet());
+                        if (typeof copy.trace === "string" && copy.trace.length > 500) {
+                            copy.trace = copy.trace.slice(0, 480).concat("…");
+                        }
+                        a[0] = copy;
+                    }
+                    if (level >= 50 && a.length >= 2) {
+                        var m = a[a.length - 1];
+                        var o = a[0];
+                        if (m === "stream errored out" && o && o.node && o.node.attrs && o.node.attrs.code === "515") {
+                            return this.warn({
+                                code: "515"
+                            }, "stream restart required (expected after pairing)");
+                        }
+                        if (typeof m === "string" && m.indexOf("unexpected error in 'init queries'") !== -1 && o && o.err && o.err.message === "bad-request") {
+                            return this.warn({
+                                err: "bad-request"
+                            }, "init queries failed (bad-request); connection often still works — disable with FIRE_INIT_QUERIES=false");
                         }
                     }
-                ]
+                    return method.apply(this, a);
+                }
+            },
+            transport: {
+                targets: logTargets
             }
         }));
         _define_property(this, "commands", new CommandHandler(this, resolve(ImportURLToString(import.meta.url), "..", "commands")));
@@ -223,25 +267,40 @@ var BajigurClient = /*#__PURE__*/ function() {
                                 ];
                             case 1:
                                 _this.authState = _state.sent();
-                                _this.socket = makeWASocket({
+                                return [
+                                    4,
+                                    fetchLatestWaWebVersion()
+                                ];
+                            case 2:
+                                var waFetch = _state.sent();
+                                var socketOpts = {
                                     logger: _this.logger,
+                                    fireInitQueries: FIRE_INIT_QUERIES,
                                     auth: {
                                         creds: _this.authState.state.creds,
                                         keys: makeCacheableSignalKeyStore(_this.authState.state.keys, _this.logger)
                                     }
-                                });
+                                };
+                                if (waFetch && waFetch.isLatest && waFetch.version) {
+                                    socketOpts.version = waFetch.version;
+                                    _this.logger.info({
+                                        version: waFetch.version
+                                    }, "Using live WA Web client revision (sw.js)");
+                                } else {
+                                    _this.logger.warn("Could not fetch live WA Web version; using bundled Baileys default");
+                                }
+                                _this.socket = makeWASocket(socketOpts);
                                 _this.socket.ev.on('connection.update', ({ qr }) => {
                                     if (qr) {
-                                        const qrcode = require('qrcode-terminal');
+                                        var qrcode = nodeRequire('qrcode-terminal');
                                         qrcode.generate(qr, { small: true });
                                     }
                                 });
-
                                 return [
                                     4,
                                     _this.listeners.init()
                                 ];
-                            case 2:
+                            case 3:
                                 _state.sent();
                                 return [
                                     2

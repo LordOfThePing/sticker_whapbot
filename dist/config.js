@@ -25,3 +25,8 @@ export var BUSY_MESSAGE = (process.env.BUSY_MESSAGE || "Busy, please wait.").tri
 export var TOO_BUSY_MESSAGE = (process.env.TOO_BUSY_MESSAGE || "Too busy to handle right now, please try again later.").trim();
 export var ALLOW_EXISTING_CHATS_ONLY = toBoolean(process.env.ALLOW_EXISTING_CHATS_ONLY, true);
 export var KNOWN_CONTACTS_PATH = process.env.KNOWN_CONTACTS_PATH || "known_contacts.json";
+var _process_env_LOG_FILE_PATH;
+var _trimmed = (_process_env_LOG_FILE_PATH = process.env.LOG_FILE_PATH) !== null && _process_env_LOG_FILE_PATH !== void 0 ? String(_process_env_LOG_FILE_PATH).trim() : "";
+export var LOG_FILE_PATH = _trimmed.length ? _trimmed : process.env.LOG_FILE_PATH === undefined ? "data/bot.log" : "";
+export var LOG_MAX_STRING_CHARS = Math.max(32, toNumber(process.env.LOG_MAX_STRING_CHARS, 220));
+export var FIRE_INIT_QUERIES = toBoolean(process.env.FIRE_INIT_QUERIES, false);

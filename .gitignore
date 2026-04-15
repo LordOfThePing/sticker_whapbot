@@ -1,3 +1,5 @@
 .env
 auth_state
 node_modules
+.cursor
+data/*.log

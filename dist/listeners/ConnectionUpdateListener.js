@@ -217,7 +217,43 @@ import ApplyMetadata from "#bajigur/decorators/ApplyMetadata.js";
 import Listener from "#bajigur/structures/Listener.js";
 import { DisconnectReason } from "@whiskeysockets/baileys";
 import { cast } from "@sapphire/utilities";
-import { rmSync } from "node:fs";
+import { existsSync, readdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+function summarizeStreamDisconnect(err) {
+    var out = {
+        streamCode: undefined,
+        conflictType: undefined
+    };
+    if (!err || !err.data) return out;
+    var node = err.data;
+    if (node && node.attrs) out.streamCode = node.attrs.code;
+    var content = node && node.content;
+    if (Array.isArray(content)) {
+        for(var i = 0; i < content.length; i++){
+            var c = content[i];
+            if (c && c.tag === "conflict" && c.attrs) out.conflictType = c.attrs.type;
+        }
+    }
+    return out;
+}
+/** Clear session files without removing the directory (Docker bind mounts cannot be rmdir'd). */
+function clearAuthStateContents(authDir, logger) {
+    try {
+        if (!existsSync(authDir)) return;
+        var entries = readdirSync(authDir, {
+            withFileTypes: true
+        });
+        for(var i = 0; i < entries.length; i++){
+            var e = entries[i];
+            rmSync(join(authDir, e.name), {
+                recursive: true,
+                force: true
+            });
+        }
+    } catch (err) {
+        logger.warn("Could not clear auth_state (non-fatal): ".concat(err instanceof Error ? err.message : "unknown"));
+    }
+}
 var ConnectionUpdateListener = /*#__PURE__*/ function(Listener) {
     "use strict";
     _inherits(ConnectionUpdateListener, Listener);
@@ -242,13 +278,17 @@ var ConnectionUpdateListener = /*#__PURE__*/ function(Listener) {
                                     3,
                                     2
                                 ];
+                                {
+                                    var _ld_err = lastDisconnect === null || lastDisconnect === void 0 ? void 0 : lastDisconnect.error;
+                                    var _sum = summarizeStreamDisconnect(_ld_err);
+                                    if (_sum.conflictType === "device_removed") {
+                                        _this.client.logger.warn("WhatsApp reported linked device removed (conflict). On your phone: Settings > Linked devices — re-link or scan the new QR if session was cleared.");
+                                    }
+                                }
                                 _this.client.logger.warn("Connection closed due to ".concat((_lastDisconnect_error_message = lastDisconnect === null || lastDisconnect === void 0 ? void 0 : (_lastDisconnect_error = lastDisconnect.error) === null || _lastDisconnect_error === void 0 ? void 0 : _lastDisconnect_error.message) !== null && _lastDisconnect_error_message !== void 0 ? _lastDisconnect_error_message : "unknown reason", ", reconnecting ").concat(shouldReconnect));
                                 _this.client.listeners.disconnectAll();
                                 if (!shouldReconnect) {
-                                    rmSync("".concat(process.cwd(), "/auth_state"), {
-                                        recursive: true,
-                                        force: true
-                                    });
+                                    clearAuthStateContents(join(process.cwd(), "auth_state"), _this.client.logger);
                                 }
                                 return [
                                     4,

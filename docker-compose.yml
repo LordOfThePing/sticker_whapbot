@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    container_name: whapbot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Persist contact allowlist outside the container; absolute path wins over cwd join.
+      KNOWN_CONTACTS_PATH: /data/known_contacts.json
+      # NDJSON, one line per log; append=true resumes after restarts.
+      LOG_FILE_PATH: /data/bot.log
+    volumes:
+      - ./auth_state:/app/auth_state
+      - ./data:/data
+    working_dir: /app
