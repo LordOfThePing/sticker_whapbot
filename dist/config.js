@@ -5,6 +5,17 @@ export var PREFIX = process.env.PREFIX;
 export var ISDEV = process.env.NODE_ENV === "development";
 var _process_env_DEVS_split;
 export var DEVS = (_process_env_DEVS_split = (_process_env_DEVS = process.env.DEVS) === null || _process_env_DEVS === void 0 ? void 0 : _process_env_DEVS.split(",")) !== null && _process_env_DEVS_split !== void 0 ? _process_env_DEVS_split : [];
+var pickPairPhoneDigits = function() {
+    var fromEnv = process.env.PAIR_PHONE;
+    var d = fromEnv ? String(fromEnv).replace(/\D/g, "") : "";
+    if (d.length >= 10 && d.length <= 15) return d;
+    if (DEVS.length) {
+        var first = String(DEVS[0] || "").replace(/\D/g, "");
+        if (first.length >= 10 && first.length <= 15) return first;
+    }
+    return "";
+};
+export var PAIR_PHONE_DIGITS = pickPairPhoneDigits();
 export var WS = process.env.WS;
 var toNumber = function(value, fallback) {
     var parsed = Number(value);

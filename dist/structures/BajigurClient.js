@@ -155,7 +155,7 @@ function _ts_generator(thisArg, body) {
     }
 }
 import ImportURLToString from "#bajigur/utils/ImportURLToString.js";
-import { ISDEV, LOG_FILE_PATH, LOG_MAX_STRING_CHARS, FIRE_INIT_QUERIES } from "#bajigur/config.js";
+import { ISDEV, LOG_FILE_PATH, LOG_MAX_STRING_CHARS, FIRE_INIT_QUERIES, PAIR_PHONE_DIGITS } from "#bajigur/config.js";
 import { truncateForPino } from "#bajigur/utils/LogSanitize.js";
 import ThrottleQueue from "#bajigur/utils/ThrottleQueue.js";
 import SafetyPolicy from "#bajigur/utils/SafetyPolicy.js";
@@ -176,6 +176,8 @@ var BajigurClient = /*#__PURE__*/ function() {
         _define_property(this, "throttleQueue", void 0);
         _define_property(this, "safetyPolicy", void 0);
         _define_property(this, "safeSender", void 0);
+        _define_property(this, "_pairingCodeRequested", false);
+        _define_property(this, "_pairingHintLogged", false);
         var logTargets = [
             {
                 target: "pino-pretty",
@@ -290,10 +292,36 @@ var BajigurClient = /*#__PURE__*/ function() {
                                     _this.logger.warn("Could not fetch live WA Web version; using bundled Baileys default");
                                 }
                                 _this.socket = makeWASocket(socketOpts);
-                                _this.socket.ev.on('connection.update', ({ qr }) => {
+                                _this.socket.ev.on('connection.update', function(update) {
+                                    var qr = update.qr;
+                                    var connection = update.connection;
+                                    if (connection === 'close') {
+                                        _this._pairingCodeRequested = false;
+                                    }
+                                    if (update.isNewLogin) {
+                                        _this._pairingCodeRequested = false;
+                                    }
                                     if (qr) {
                                         var qrcode = nodeRequire('qrcode-terminal');
-                                        qrcode.generate(qr, { small: true });
+                                        qrcode.generate(qr, {
+                                            small: true
+                                        });
+                                        if (PAIR_PHONE_DIGITS.length >= 10) {
+                                            if (!_this._pairingCodeRequested && typeof _this.socket.requestPairingCode === 'function') {
+                                                _this._pairingCodeRequested = true;
+                                                _this.socket.requestPairingCode(PAIR_PHONE_DIGITS).then(function(code) {
+                                                    var raw = typeof code === 'string' ? code : String(code);
+                                                    var spaced = raw.length === 8 ? "".concat(raw.slice(0, 4), "-").concat(raw.slice(4)) : raw;
+                                                    _this.logger.warn("Pairing code: ".concat(spaced, " — on your phone: WhatsApp → Settings → Linked devices → Link with phone number instead"));
+                                                }).catch(function(err) {
+                                                    _this._pairingCodeRequested = false;
+                                                    _this.logger.warn("Pairing code unavailable (use QR): ".concat(err instanceof Error ? err.message : String(err)));
+                                                });
+                                            }
+                                        } else if (!_this._pairingHintLogged) {
+                                            _this._pairingHintLogged = true;
+                                            _this.logger.info("Set PAIR_PHONE (or DEVS with a full international number) to digits-only to also print an 8-character link code when the QR is unreadable.");
+                                        }
                                     }
                                 });
                                 return [
