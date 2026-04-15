@@ -176,8 +176,7 @@ var BajigurClient = /*#__PURE__*/ function() {
         _define_property(this, "throttleQueue", void 0);
         _define_property(this, "safetyPolicy", void 0);
         _define_property(this, "safeSender", void 0);
-        _define_property(this, "_pairingCodeRequested", false);
-        _define_property(this, "_pairingHintLogged", false);
+        _define_property(this, "_pairingCodeTimer", void 0);
         var logTargets = [
             {
                 target: "pino-pretty",
@@ -295,33 +294,38 @@ var BajigurClient = /*#__PURE__*/ function() {
                                 _this.socket.ev.on('connection.update', function(update) {
                                     var qr = update.qr;
                                     var connection = update.connection;
-                                    if (connection === 'close') {
-                                        _this._pairingCodeRequested = false;
-                                    }
-                                    if (update.isNewLogin) {
-                                        _this._pairingCodeRequested = false;
+                                    if (connection === 'close' || update.isNewLogin) {
+                                        if (_this._pairingCodeTimer !== void 0 && _this._pairingCodeTimer !== null) {
+                                            clearTimeout(_this._pairingCodeTimer);
+                                            _this._pairingCodeTimer = void 0;
+                                        }
                                     }
                                     if (qr) {
                                         var qrcode = nodeRequire('qrcode-terminal');
                                         qrcode.generate(qr, {
                                             small: true
                                         });
-                                        if (PAIR_PHONE_DIGITS.length >= 10) {
-                                            if (!_this._pairingCodeRequested && typeof _this.socket.requestPairingCode === 'function') {
-                                                _this._pairingCodeRequested = true;
+                                        if (_this._pairingCodeTimer !== void 0 && _this._pairingCodeTimer !== null) {
+                                            clearTimeout(_this._pairingCodeTimer);
+                                        }
+                                        _this._pairingCodeTimer = setTimeout(function() {
+                                            _this._pairingCodeTimer = void 0;
+                                            if (PAIR_PHONE_DIGITS.length >= 10) {
+                                                if (typeof _this.socket.requestPairingCode !== 'function') {
+                                                    _this.logger.warn("Pairing code: socket.requestPairingCode is not available (use QR).");
+                                                    return;
+                                                }
                                                 _this.socket.requestPairingCode(PAIR_PHONE_DIGITS).then(function(code) {
                                                     var raw = typeof code === 'string' ? code : String(code);
                                                     var spaced = raw.length === 8 ? "".concat(raw.slice(0, 4), "-").concat(raw.slice(4)) : raw;
                                                     _this.logger.warn("Pairing code: ".concat(spaced, " — on your phone: WhatsApp → Settings → Linked devices → Link with phone number instead"));
                                                 }).catch(function(err) {
-                                                    _this._pairingCodeRequested = false;
                                                     _this.logger.warn("Pairing code unavailable (use QR): ".concat(err instanceof Error ? err.message : String(err)));
                                                 });
+                                            } else {
+                                                _this.logger.warn("Set PAIR_PHONE or DEVS (10–15 digits, country code, no +) to print the 8-character link code alongside the QR.");
                                             }
-                                        } else if (!_this._pairingHintLogged) {
-                                            _this._pairingHintLogged = true;
-                                            _this.logger.info("Set PAIR_PHONE (or DEVS with a full international number) to digits-only to also print an 8-character link code when the QR is unreadable.");
-                                        }
+                                        }, 280);
                                     }
                                 });
                                 return [
