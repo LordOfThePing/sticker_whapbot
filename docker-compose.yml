@@ -2,14 +2,19 @@ services:
   app:
     build: .
     container_name: whapbot
-    restart: unless-stopped
+    # Avoid endless restart storms during unstable sessions.
+    restart: on-failure:5
+    # Hard resource caps so this bot stays in "test tier".
+    cpus: 0.50
+    mem_limit: 512m
+    memswap_limit: 512m
+    pids_limit: 128
+    cpu_shares: 128
     env_file:
       - .env
     environment:
       # Persist contact allowlist outside the container; absolute path wins over cwd join.
       KNOWN_CONTACTS_PATH: /data/known_contacts.json
-      # NDJSON, one line per log; append=true resumes after restarts.
-      LOG_FILE_PATH: /data/bot.log
     volumes:
       - ./auth_state:/app/auth_state
       - ./data:/data
