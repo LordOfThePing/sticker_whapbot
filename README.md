@@ -1,6 +1,6 @@
 # whapbot
 
-Lightweight WhatsApp bot for testing commands with low server impact.
+Lightweight WhatsApp bot for testing commands with low server impact. Mainly made for whatsapp sticker creation.
 
 ## What this bot does
 
