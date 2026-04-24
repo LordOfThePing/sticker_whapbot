@@ -273,6 +273,26 @@ import { WAProto, downloadMediaMessage } from "@whiskeysockets/baileys";
 import { unlinkSync, writeFileSync } from "fs";
 import { createSticker } from "wa-sticker";
 import { join } from "path";
+function __agentLog(hypothesisId, location, message, data) {
+    // #region agent log
+    fetch('http://127.0.0.1:7423/ingest/5f0cce68-2a96-4960-b751-0624889b0f6f', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': '88a547'
+        },
+        body: JSON.stringify({
+            sessionId: '88a547',
+            runId: 'initial',
+            hypothesisId: hypothesisId,
+            location: location,
+            message: message,
+            data: data,
+            timestamp: Date.now()
+        })
+    }).catch(function() {});
+    // #endregion
+}
 var StickerCommand = /*#__PURE__*/ function(Command) {
     "use strict";
     _inherits(StickerCommand, Command);
@@ -446,17 +466,30 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                 ];
                             case 1:
                                 convertingMessage = _state.sent();
+                                __agentLog("H1", "StickerCommand.js:449", "convertToSticker started", {
+                                    jid: Jid,
+                                    fromKey: (from === null || from === void 0 ? void 0 : from.key) ? "present" : "missing",
+                                    messageTypes: message === null || message === void 0 ? void 0 : message.message ? Object.keys(message.message) : []
+                                });
                                 return [
                                     4,
                                     downloadMediaMessage(message, "buffer", {})
                                 ];
                             case 2:
                                 buffer = _state.sent();
+                                __agentLog("H1", "StickerCommand.js:456", "media downloaded", {
+                                    bufferLength: buffer === null || buffer === void 0 ? void 0 : buffer.length
+                                });
                                 fileExtension = GetMediaTypeFromBuffer(buffer);
                                 fileName = "".concat(Date.now(), ".").concat(fileExtension);
                                 filePath = join(process.cwd(), fileName);
                                 writeFileSync(filePath, buffer);
                                 quality = 100 - buffer.length / 2 * 100 / 1000000;
+                                __agentLog("H2", "StickerCommand.js:465", "prepared conversion inputs", {
+                                    fileExtension: fileExtension,
+                                    initialQuality: quality,
+                                    filePath: filePath
+                                });
                                 stickerOptions = {
                                     crop: false,
                                     metadata: {
@@ -474,6 +507,10 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                 ];
                             case 3:
                                 stickerBuffer = _state.sent();
+                                __agentLog("H3", "StickerCommand.js:486", "initial sticker created", {
+                                    stickerLength: stickerBuffer === null || stickerBuffer === void 0 ? void 0 : stickerBuffer.length,
+                                    quality: quality
+                                });
                                 _state.label = 4;
                             case 4:
                                 if (!(stickerBuffer.length >= 1000000)) return [
@@ -481,6 +518,10 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                     6
                                 ];
                                 quality -= 10;
+                                __agentLog("H3", "StickerCommand.js:494", "retrying sticker quality", {
+                                    nextQuality: quality,
+                                    stickerLength: stickerBuffer.length
+                                });
                                 return [
                                     4,
                                     createSticker([
@@ -500,6 +541,10 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                     sticker: stickerBuffer
                                 };
                                 unlinkSync(filePath);
+                                __agentLog("H4", "StickerCommand.js:513", "sending sticker message", {
+                                    stickerLength: stickerBuffer.length,
+                                    hasConvertingKey: (convertingMessage === null || convertingMessage === void 0 ? void 0 : convertingMessage.key) ? true : false
+                                });
                                 return [
                                     4,
                                     _this.client.safeSend(Jid, sticker, {
@@ -508,6 +553,9 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                 ];
                             case 7:
                                 _state.sent();
+                                __agentLog("H5", "StickerCommand.js:524", "sticker sent, deleting converting message", {
+                                    deleteKeyPresent: (convertingMessage === null || convertingMessage === void 0 ? void 0 : convertingMessage.key) ? true : false
+                                });
                                 return [
                                     4,
                                     _this.client.safeSend(Jid, {
@@ -516,6 +564,9 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                 ];
                             case 8:
                                 _state.sent();
+                                __agentLog("H5", "StickerCommand.js:532", "delete conversion message sent", {
+                                    jid: Jid
+                                });
                                 return [
                                     2
                                 ];
