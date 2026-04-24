@@ -240,6 +240,26 @@ import ImportClass from "#bajigur/utils/ImportClass.js";
 import { Collection } from "@discordjs/collection";
 import { mergeDefault } from "@sapphire/utilities";
 import { resolve } from "node:path";
+function __agentLog(hypothesisId, location, message, data) {
+    // #region agent log
+    fetch('http://127.0.0.1:7423/ingest/5f0cce68-2a96-4960-b751-0624889b0f6f', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': '88a547'
+        },
+        body: JSON.stringify({
+            sessionId: '88a547',
+            runId: 'init-command-registration',
+            hypothesisId: hypothesisId,
+            location: location,
+            message: message,
+            data: data,
+            timestamp: Date.now()
+        })
+    }).catch(function() {});
+    // #endregion
+}
 var Command = /*#__PURE__*/ function() {
     "use strict";
     function Command(client, meta) {
@@ -331,11 +351,32 @@ export var CommandHandler = /*#__PURE__*/ function(Collection1) {
                                                 if (command) {
                                                     ;
                                                     command.meta = mergeDefault(DefaultCommandMetadata, command.meta);
+                                                    __agentLog("C1", "Command.js:355", "metadata merged", {
+                                                        commandName: (command.meta === null || command.meta === void 0 ? void 0 : command.meta.name) || "unknown",
+                                                        isFrozen: Object.isFrozen(command.meta),
+                                                        categoryDescriptor: Object.getOwnPropertyDescriptor(command.meta, "category")
+                                                    });
                                                     category = path.split(/\/|\\/g).slice(0, -1).pop().toLowerCase();
-                                                    Object.freeze(Object.assign(command.meta, {
-                                                        category: category,
-                                                        path: path
-                                                    }));
+                                                    try {
+                                                        Object.freeze(Object.assign(command.meta, {
+                                                            category: category,
+                                                            path: path
+                                                        }));
+                                                        __agentLog("C2", "Command.js:366", "metadata category assigned and frozen", {
+                                                            commandName: command.meta.name,
+                                                            category: category,
+                                                            path: path
+                                                        });
+                                                    } catch (metaAssignError) {
+                                                        __agentLog("C3", "Command.js:373", "metadata assignment failed", {
+                                                            commandName: (command.meta === null || command.meta === void 0 ? void 0 : command.meta.name) || "unknown",
+                                                            category: category,
+                                                            isFrozen: Object.isFrozen(command.meta),
+                                                            categoryDescriptor: Object.getOwnPropertyDescriptor(command.meta, "category"),
+                                                            errorMessage: metaAssignError === null || metaAssignError === void 0 ? void 0 : metaAssignError.message
+                                                        });
+                                                        throw metaAssignError;
+                                                    }
                                                     _this.set(command.meta.name, command);
                                                     if ((_command_meta_aliases = command.meta.aliases) === null || _command_meta_aliases === void 0 ? void 0 : _command_meta_aliases.length) {
                                                         command.meta.aliases.map(function(alias) {
