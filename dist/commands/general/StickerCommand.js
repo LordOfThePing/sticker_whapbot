@@ -557,17 +557,6 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                     deleteKeyPresent: (convertingMessage === null || convertingMessage === void 0 ? void 0 : convertingMessage.key) ? true : false
                                 });
                                 return [
-                                    4,
-                                    _this.client.safeSend(Jid, {
-                                        delete: convertingMessage.key
-                                    })
-                                ];
-                            case 8:
-                                _state.sent();
-                                __agentLog("H5", "StickerCommand.js:532", "delete conversion message sent", {
-                                    jid: Jid
-                                });
-                                return [
                                     2
                                 ];
                         }
