@@ -41,3 +41,7 @@ var _trimmed = (_process_env_LOG_FILE_PATH = process.env.LOG_FILE_PATH) !== null
 export var LOG_FILE_PATH = _trimmed.length ? _trimmed : process.env.LOG_FILE_PATH === undefined ? "data/bot.log" : "";
 export var LOG_MAX_STRING_CHARS = Math.max(32, toNumber(process.env.LOG_MAX_STRING_CHARS, 220));
 export var FIRE_INIT_QUERIES = toBoolean(process.env.FIRE_INIT_QUERIES, false);
+export var OPENAI_API_KEY = (process.env.OPENAI_API_KEY || "").trim();
+export var OPENAI_MODEL = (process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
+export var MEME_CAPTION_ENABLED = toBoolean(process.env.MEME_CAPTION_ENABLED, OPENAI_API_KEY.length > 0);
+export var MEME_FONT_PATH = (process.env.MEME_FONT_PATH || "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf").trim();

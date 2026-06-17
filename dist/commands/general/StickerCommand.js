@@ -269,6 +269,7 @@ import { BOT_NAME, STICKER_PACK_NAME } from "#bajigur/config.js";
 import ApplyMetadata from "#bajigur/decorators/ApplyMetadata.js";
 import Command from "#bajigur/structures/Command.js";
 import GetMediaTypeFromBuffer from "#bajigur/utils/GetMediaTypeFromBuffer.js";
+import PrepareMemeMedia from "#bajigur/utils/PrepareMemeMedia.js";
 import { WAProto, downloadMediaMessage } from "@whiskeysockets/baileys";
 import { unlinkSync, writeFileSync } from "fs";
 import { createSticker } from "wa-sticker";
@@ -483,7 +484,7 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
             value: function convertToSticker(Jid, message, from, args) {
                 var _this = this;
                 return _async_to_generator(function() {
-                    var _message_message_videoMessage_seconds, _message_message, _message_message_videoMessage, convertingMessage, videoSeconds, buffer, fileExtension, fileName, filePath, quality, stickerOptions, stickerBuffer, sticker, err;
+                    var _message_message_videoMessage_seconds, _message_message, _message_message_videoMessage, convertingMessage, videoSeconds, buffer, fileExtension, fileName, filePath, memeCaption, memeHint, memeResult, quality, stickerOptions, stickerBuffer, sticker, err;
                     return _ts_generator(this, function(_state) {
                         switch(_state.label){
                             case 0:
@@ -506,10 +507,11 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                     2
                                 ];
                             case 2:
+                                memeHint = (args === null || args === void 0 ? void 0 : args.length) ? args.join(" ").trim() : "";
                                 return [
                                     4,
                                     _this.client.safeSend(Jid, {
-                                        text: "_Converting to sticker..._"
+                                        text: memeHint.length ? "_Adding caption & converting to sticker..._" : "_Converting to sticker..._"
                                     })
                                 ];
                             case 3:
@@ -517,9 +519,9 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                 filePath = undefined;
                                 _state.trys.push([
                                     4,
-                                    12,
+                                    14,
                                     ,
-                                    13
+                                    15
                                 ]);
                                 return [
                                     4,
@@ -534,12 +536,32 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                 fileName = "".concat(Date.now(), ".").concat(fileExtension);
                                 filePath = join(process.cwd(), fileName);
                                 writeFileSync(filePath, buffer);
+                                memeCaption = undefined;
+                                if (!memeHint.length) return [
+                                    3,
+                                    6
+                                ];
+                                return [
+                                    4,
+                                    promiseWithTimeout(PrepareMemeMedia({
+                                        filePath: filePath,
+                                        fileExtension: fileExtension,
+                                        memeHint: memeHint,
+                                        logger: _this.client.logger
+                                    }), STICKER_TIMEOUT_MS, "Meme caption")
+                                ];
+                            case 5:
+                                memeResult = _state.sent();
+                                filePath = memeResult.filePath;
+                                memeCaption = memeResult.caption;
+                                _state.label = 6;
+                            case 6:
                                 quality = 100 - buffer.length / 2 * 100 / 1000000;
                                 stickerOptions = {
                                     crop: false,
                                     metadata: {
                                         publisher: BOT_NAME,
-                                        packname: (args === null || args === void 0 ? void 0 : args.length) ? args.join(" ") : STICKER_PACK_NAME
+                                        packname: STICKER_PACK_NAME
                                     }
                                 };
                                 return [
@@ -550,13 +572,13 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                         quality: quality
                                     }, stickerOptions)), STICKER_TIMEOUT_MS, "Sticker conversion")
                                 ];
-                            case 5:
+                            case 7:
                                 stickerBuffer = _state.sent();
-                                _state.label = 6;
-                            case 6:
+                                _state.label = 8;
+                            case 8:
                                 if (!(stickerBuffer.length >= 1000000)) return [
                                     3,
-                                    8
+                                    10
                                 ];
                                 if (!(quality > 10)) {
                                     throw new Error("Sticker file is too large to send on WhatsApp.");
@@ -570,13 +592,13 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                         quality: quality
                                     }, stickerOptions)), STICKER_TIMEOUT_MS, "Sticker conversion")
                                 ];
-                            case 7:
+                            case 9:
                                 stickerBuffer = _state.sent();
                                 return [
                                     3,
-                                    6
+                                    8
                                 ];
-                            case 8:
+                            case 10:
                                 sticker = {
                                     sticker: stickerBuffer
                                 };
@@ -588,12 +610,26 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                         quoted: from
                                     })
                                 ];
-                            case 9:
+                            case 11:
+                                _state.sent();
+                                if (!(memeCaption === null || memeCaption === void 0 ? void 0 : memeCaption.top)) return [
+                                    3,
+                                    12
+                                ];
+                                return [
+                                    4,
+                                    _this.client.safeSend(Jid, {
+                                        text: memeCaption.bottom ? "_".concat(memeCaption.top, "_\n_").concat(memeCaption.bottom, "_") : "_".concat(memeCaption.top, "_")
+                                    }, {
+                                        quoted: from
+                                    })
+                                ];
+                            case 12:
                                 _state.sent();
                                 return [
                                     2
                                 ];
-                            case 12:
+                            case 14:
                                 err = _state.sent();
                                 _this.client.logger.error(err);
                                 if (filePath) {
@@ -609,7 +645,7 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                         quoted: from
                                     })
                                 ];
-                            case 13:
+                            case 15:
                                 _state.sent();
                                 return [
                                     2
@@ -629,7 +665,7 @@ StickerCommand = _ts_decorate([
         aliases: [
             "stiker"
         ],
-        description: "Convert image to sticker",
-        usage: "{PREFIX}sticker <image/video/gif> [sticker pack name]"
+        description: "Convert image or video to sticker. Add a phrase for a title (images use AI).",
+        usage: "{PREFIX}sticker [title phrase] — attach media or reply to image/video"
     })
 ], StickerCommand);
