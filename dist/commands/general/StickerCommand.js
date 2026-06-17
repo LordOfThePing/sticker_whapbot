@@ -434,7 +434,7 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
             value: function convertToSticker(Jid, message, from, args) {
                 var _this = this;
                 return _async_to_generator(function() {
-                    var _this_client_socket, _this_client_socket1, _this_client_socket2, convertingMessage, buffer, fileExtension, fileName, filePath, quality, stickerOptions, stickerBuffer, sticker;
+                    var _this_client_socket, _this_client_socket1, _this_client_socket2, convertingMessage, buffer, fileExtension, fileName, filePath, quality, stickerOptions, stickerBuffer, sticker, err;
                     return _ts_generator(this, function(_state) {
                         switch(_state.label){
                             case 0:
@@ -446,9 +446,19 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                 ];
                             case 1:
                                 convertingMessage = _state.sent();
+                                filePath = undefined;
+                                _state.trys.push([
+                                    2,
+                                    10,
+                                    ,
+                                    11
+                                ]);
                                 return [
                                     4,
-                                    downloadMediaMessage(message, "buffer", {})
+                                    downloadMediaMessage(message, "buffer", {}, {
+                                        logger: _this.client.logger,
+                                        reuploadRequest: _this.client.socket.updateMediaMessage.bind(_this.client.socket)
+                                    })
                                 ];
                             case 2:
                                 buffer = _state.sent();
@@ -507,6 +517,27 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                     })
                                 ];
                             case 7:
+                                _state.sent();
+                                return [
+                                    2
+                                ];
+                            case 10:
+                                err = _state.sent();
+                                _this.client.logger.error(err);
+                                if (filePath) {
+                                    try {
+                                        unlinkSync(filePath);
+                                    } catch (e) {}
+                                }
+                                return [
+                                    4,
+                                    _this.client.safeSend(Jid, {
+                                        text: "Failed to create sticker. Please try again with a shorter video or smaller image."
+                                    }, {
+                                        quoted: from
+                                    })
+                                ];
+                            case 11:
                                 _state.sent();
                                 return [
                                     2

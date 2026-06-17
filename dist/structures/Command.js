@@ -299,6 +299,12 @@ export var CommandHandler = /*#__PURE__*/ function(Collection1) {
                     return _ts_generator(this, function(_state) {
                         switch(_state.label){
                             case 0:
+                                if (_this.isReady) {
+                                    _this.client.logger.info("Commands already registered, skipping re-init.");
+                                    return [
+                                        2
+                                    ];
+                                }
                                 _state.trys.push([
                                     0,
                                     9,
@@ -330,9 +336,8 @@ export var CommandHandler = /*#__PURE__*/ function(Collection1) {
                                                 command = _state.sent();
                                                 if (command) {
                                                     ;
-                                                    command.meta = mergeDefault(DefaultCommandMetadata, command.meta);
                                                     category = path.split(/\/|\\/g).slice(0, -1).pop().toLowerCase();
-                                                    Object.freeze(Object.assign(command.meta, {
+                                                    command.meta = Object.freeze(Object.assign(mergeDefault(DefaultCommandMetadata, Object.assign({}, command.meta)), {
                                                         category: category,
                                                         path: path
                                                     }));

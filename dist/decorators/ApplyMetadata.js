@@ -49,7 +49,7 @@ export default function ApplyMetadata(meta) {
         return new Proxy(target, {
             construct: function(ctx, param) {
                 var _param = _sliced_to_array(param, 1), client = _param[0];
-                return new ctx(client, meta);
+                return new ctx(client, Object.assign({}, meta));
             }
         });
     };
