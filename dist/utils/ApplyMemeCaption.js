@@ -14,7 +14,7 @@ function escapeDrawtext(text) {
 function buildDrawtextFilters(caption, isVideo) {
     var font = MEME_FONT_PATH.replace(/\\/g, "/").replace(/:/g, "\\:");
     var filters = [];
-    var textStyle = "fontfile='".concat(font, "':fontcolor=black:fontsize=h/22:box=1:boxcolor=white@0.82:boxborderw=10:x=(w-text_w)/2:text_align=center");
+    var textStyle = "fontfile='".concat(font, "':fontcolor=black:fontsize=h/22:box=1:boxcolor=white@0.82:boxborderw=10:x=(w-text_w)/2");
     if (caption.top) {
         filters.push("drawtext=".concat(textStyle, ":text='").concat(escapeDrawtext(caption.top), "':y=h*0.03"));
     }
