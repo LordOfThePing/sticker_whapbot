@@ -273,6 +273,39 @@ import { WAProto, downloadMediaMessage } from "@whiskeysockets/baileys";
 import { unlinkSync, writeFileSync } from "fs";
 import { createSticker } from "wa-sticker";
 import { join } from "path";
+var MAX_VIDEO_SECONDS = 10;
+var DOWNLOAD_TIMEOUT_MS = 90000;
+var STICKER_TIMEOUT_MS = 180000;
+function getMessageVideoSeconds(message) {
+    var _message_message, _message_message_videoMessage, _message_message1, _message_message_documentWithCaptionMessage_message, _message_message_documentWithCaptionMessage, _message_message_documentWithCaptionMessage_message_videoMessage;
+    var video = (_message_message = message.message) === null || _message_message === void 0 ? void 0 : (_message_message_videoMessage = _message_message.videoMessage) !== null && _message_message_videoMessage !== void 0 ? _message_message_videoMessage : (_message_message1 = message.message) === null || _message_message1 === void 0 ? void 0 : (_message_message_documentWithCaptionMessage = _message_message1.documentWithCaptionMessage) === null || _message_message_documentWithCaptionMessage === void 0 ? void 0 : (_message_message_documentWithCaptionMessage_message = _message_message_documentWithCaptionMessage.message) === null || _message_message_documentWithCaptionMessage_message === void 0 ? void 0 : (_message_message_documentWithCaptionMessage_message_videoMessage = _message_message_documentWithCaptionMessage_message.videoMessage) !== null && _message_message_documentWithCaptionMessage_message_videoMessage !== void 0 ? _message_message_documentWithCaptionMessage_message_videoMessage : undefined;
+    if (!video || video.seconds === undefined || video.seconds === null) return null;
+    return Number(video.seconds);
+}
+function tooLongVideoMessage(seconds) {
+    return "Please use Video or GIF with duration under ".concat(MAX_VIDEO_SECONDS, " seconds. This video is ").concat(seconds, "s.");
+}
+function stickerFailureMessage(err) {
+    var msg = err && (err.message || String(err)) || "unknown error";
+    if (/timed out/i.test(msg)) return "Sticker conversion timed out. Please use a video under ".concat(MAX_VIDEO_SECONDS, " seconds or a smaller image.");
+    if (/too large/i.test(msg)) return "Sticker file is too large to send on WhatsApp. Try a shorter video or lower-resolution image.";
+    if (/duration|10 second/i.test(msg)) return msg;
+    return "Failed to create sticker: ".concat(msg);
+}
+function promiseWithTimeout(promise, ms, label) {
+    return new Promise(function(resolve, reject) {
+        var timer = setTimeout(function() {
+            reject(new Error("".concat(label, " timed out after ").concat(Math.round(ms / 1000), "s")));
+        }, ms);
+        Promise.resolve(promise).then(function(value) {
+            clearTimeout(timer);
+            resolve(value);
+        }).catch(function(err) {
+            clearTimeout(timer);
+            reject(err);
+        });
+    });
+}
 var StickerCommand = /*#__PURE__*/ function(Command) {
     "use strict";
     _inherits(StickerCommand, Command);
@@ -295,14 +328,14 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                     3,
                                     3
                                 ];
-                                if (!(((_data_message_videoMessage_seconds = (_data_message_videoMessage = data.message.videoMessage) === null || _data_message_videoMessage === void 0 ? void 0 : _data_message_videoMessage.seconds) !== null && _data_message_videoMessage_seconds !== void 0 ? _data_message_videoMessage_seconds : 0) >= 10)) return [
+                                if (!(((_data_message_videoMessage_seconds = (_data_message_videoMessage = data.message.videoMessage) === null || _data_message_videoMessage === void 0 ? void 0 : _data_message_videoMessage.seconds) !== null && _data_message_videoMessage_seconds !== void 0 ? _data_message_videoMessage_seconds : 0) >= MAX_VIDEO_SECONDS)) return [
                                     3,
                                     2
                                 ];
                                 return [
                                     4,
                                     _this.client.safeSend(data.key.remoteJid, {
-                                        text: "Please use Video or GIF with duration under 10 seconds."
+                                        text: tooLongVideoMessage(Number((_data_message_videoMessage_seconds = (_data_message_videoMessage = data.message.videoMessage) === null || _data_message_videoMessage === void 0 ? void 0 : _data_message_videoMessage.seconds) !== null && _data_message_videoMessage_seconds !== void 0 ? _data_message_videoMessage_seconds : 0))
                                     }, {
                                         quoted: data
                                     })
@@ -316,21 +349,21 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                             case 2:
                                 return [
                                     2,
-                                    _this.convertToSticker(data.key.remoteJid, data, data, args)
+                                    _this.safeConvertToSticker(data.key.remoteJid, data, data, args)
                                 ];
                             case 3:
                                 if (!((_data_message2 = data.message) === null || _data_message2 === void 0 ? void 0 : _data_message2.documentWithCaptionMessage)) return [
                                     3,
                                     6
                                 ];
-                                if (!(((_data_message_documentWithCaptionMessage_message_videoMessage_seconds = (_data_message_documentWithCaptionMessage_message = data.message.documentWithCaptionMessage.message) === null || _data_message_documentWithCaptionMessage_message === void 0 ? void 0 : (_data_message_documentWithCaptionMessage_message_videoMessage = _data_message_documentWithCaptionMessage_message.videoMessage) === null || _data_message_documentWithCaptionMessage_message_videoMessage === void 0 ? void 0 : _data_message_documentWithCaptionMessage_message_videoMessage.seconds) !== null && _data_message_documentWithCaptionMessage_message_videoMessage_seconds !== void 0 ? _data_message_documentWithCaptionMessage_message_videoMessage_seconds : 0) >= 10)) return [
+                                if (!(((_data_message_documentWithCaptionMessage_message_videoMessage_seconds = (_data_message_documentWithCaptionMessage_message = data.message.documentWithCaptionMessage.message) === null || _data_message_documentWithCaptionMessage_message === void 0 ? void 0 : (_data_message_documentWithCaptionMessage_message_videoMessage = _data_message_documentWithCaptionMessage_message.videoMessage) === null || _data_message_documentWithCaptionMessage_message_videoMessage === void 0 ? void 0 : _data_message_documentWithCaptionMessage_message_videoMessage.seconds) !== null && _data_message_documentWithCaptionMessage_message_videoMessage_seconds !== void 0 ? _data_message_documentWithCaptionMessage_message_videoMessage_seconds : 0) >= MAX_VIDEO_SECONDS)) return [
                                     3,
                                     5
                                 ];
                                 return [
                                     4,
                                     _this.client.safeSend(data.key.remoteJid, {
-                                        text: "Please use Video or GIF with duration under 10 seconds."
+                                        text: tooLongVideoMessage(Number((_data_message_documentWithCaptionMessage_message_videoMessage_seconds = (_data_message_documentWithCaptionMessage_message = data.message.documentWithCaptionMessage.message) === null || _data_message_documentWithCaptionMessage_message === void 0 ? void 0 : (_data_message_documentWithCaptionMessage_message_videoMessage = _data_message_documentWithCaptionMessage_message.videoMessage) === null || _data_message_documentWithCaptionMessage_message_videoMessage === void 0 ? void 0 : _data_message_documentWithCaptionMessage_message_videoMessage.seconds) !== null && _data_message_documentWithCaptionMessage_message_videoMessage_seconds !== void 0 ? _data_message_documentWithCaptionMessage_message_videoMessage_seconds : 0))
                                     }, {
                                         quoted: data
                                     })
@@ -344,7 +377,7 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                             case 5:
                                 return [
                                     2,
-                                    _this.convertToSticker(data.key.remoteJid, WAProto.WebMessageInfo.create(_object_spread_props(_object_spread({}, data), {
+                                    _this.safeConvertToSticker(data.key.remoteJid, WAProto.WebMessageInfo.create(_object_spread_props(_object_spread({}, data), {
                                         message: data.message.documentWithCaptionMessage.message
                                     })), data, args)
                                 ];
@@ -353,14 +386,16 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                     3,
                                     9
                                 ];
-                                if (!(((_data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage_seconds = (_data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage = data.message.extendedTextMessage.contextInfo.quotedMessage.videoMessage) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage === void 0 ? void 0 : _data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage.seconds) !== null && _data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage_seconds !== void 0 ? _data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage_seconds : 0) >= 10 || ((_data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage_seconds = (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage = data.message.extendedTextMessage.contextInfo.quotedMessage.documentMessage) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage === void 0 ? void 0 : (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo = _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage.contextInfo) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo === void 0 ? void 0 : (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage = _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo.quotedMessage) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage === void 0 ? void 0 : (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage = _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage.videoMessage) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage === void 0 ? void 0 : _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage.seconds) !== null && _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage_seconds !== void 0 ? _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage_seconds : 0) >= 10)) return [
+                                if (!(((_data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage_seconds = (_data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage = data.message.extendedTextMessage.contextInfo.quotedMessage.videoMessage) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage === void 0 ? void 0 : _data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage.seconds) !== null && _data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage_seconds !== void 0 ? _data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage_seconds : 0) >= MAX_VIDEO_SECONDS || ((_data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage_seconds = (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage = data.message.extendedTextMessage.contextInfo.quotedMessage.documentMessage) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage === void 0 ? void 0 : (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo = _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage.contextInfo) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo === void 0 ? void 0 : (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage = _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo.quotedMessage) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage === void 0 ? void 0 : (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage = _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage.videoMessage) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage === void 0 ? void 0 : _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage.seconds) !== null && _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage_seconds !== void 0 ? _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage_seconds : 0) >= MAX_VIDEO_SECONDS)) return [
                                     3,
                                     8
                                 ];
                                 return [
                                     4,
                                     _this.client.safeSend(data.key.remoteJid, {
-                                        text: "Please use Video or GIF with duration under 10 seconds."
+                                        text: tooLongVideoMessage(getMessageVideoSeconds(WAProto.WebMessageInfo.create(_object_spread_props(_object_spread({}, data), {
+                                            message: data.message.extendedTextMessage.contextInfo.quotedMessage
+                                        }))) || Math.max(Number((_data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage_seconds = (_data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage = data.message.extendedTextMessage.contextInfo.quotedMessage.videoMessage) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage === void 0 ? void 0 : _data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage.seconds) !== null && _data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage_seconds !== void 0 ? _data_message_extendedTextMessage_contextInfo_quotedMessage_videoMessage_seconds : 0), Number((_data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage_seconds = (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage = data.message.extendedTextMessage.contextInfo.quotedMessage.documentMessage) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage === void 0 ? void 0 : (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo = _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage.contextInfo) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo === void 0 ? void 0 : (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage = _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo.quotedMessage) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage === void 0 ? void 0 : (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage = _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage.videoMessage) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage === void 0 ? void 0 : _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage.seconds) !== null && _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage_seconds !== void 0 ? _data_message_extendedTextMessage_contextInfo_quotedMessage_documentMessage_contextInfo_quotedMessage_videoMessage_seconds : 0)))
                                     }, {
                                         quoted: data
                                     })
@@ -374,7 +409,7 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                             case 8:
                                 return [
                                     2,
-                                    _this.convertToSticker(data.key.remoteJid, WAProto.WebMessageInfo.create(_object_spread_props(_object_spread({}, data), {
+                                    _this.safeConvertToSticker(data.key.remoteJid, WAProto.WebMessageInfo.create(_object_spread_props(_object_spread({}, data), {
                                         message: data.message.extendedTextMessage.contextInfo.quotedMessage
                                     })), data, args)
                                 ];
@@ -383,14 +418,14 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                     3,
                                     12
                                 ];
-                                if (!(((_data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage_seconds = (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message = data.message.extendedTextMessage.contextInfo.quotedMessage.documentWithCaptionMessage.message) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message === void 0 ? void 0 : (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage = _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message.videoMessage) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage === void 0 ? void 0 : _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage.seconds) !== null && _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage_seconds !== void 0 ? _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage_seconds : 0) >= 10)) return [
+                                if (!(((_data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage_seconds = (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message = data.message.extendedTextMessage.contextInfo.quotedMessage.documentWithCaptionMessage.message) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message === void 0 ? void 0 : (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage = _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message.videoMessage) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage === void 0 ? void 0 : _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage.seconds) !== null && _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage_seconds !== void 0 ? _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage_seconds : 0) >= MAX_VIDEO_SECONDS)) return [
                                     3,
                                     11
                                 ];
                                 return [
                                     4,
                                     _this.client.safeSend(data.key.remoteJid, {
-                                        text: "Please use Video or GIF with duration under 10 seconds."
+                                        text: tooLongVideoMessage(Number((_data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage_seconds = (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message = data.message.extendedTextMessage.contextInfo.quotedMessage.documentWithCaptionMessage.message) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message === void 0 ? void 0 : (_data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage = _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message.videoMessage) === null || _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage === void 0 ? void 0 : _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage.seconds) !== null && _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage_seconds !== void 0 ? _data_message_extendedTextMessage_contextInfo_quotedMessage_documentWithCaptionMessage_message_videoMessage_seconds : 0))
                                     }, {
                                         quoted: data
                                     })
@@ -404,7 +439,7 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                             case 11:
                                 return [
                                     2,
-                                    _this.convertToSticker(data.key.remoteJid, WAProto.WebMessageInfo.create(_object_spread_props(_object_spread({}, data), {
+                                    _this.safeConvertToSticker(data.key.remoteJid, WAProto.WebMessageInfo.create(_object_spread_props(_object_spread({}, data), {
                                         message: data.message.extendedTextMessage.contextInfo.quotedMessage.documentWithCaptionMessage.message
                                     })), data, args)
                                 ];
@@ -430,37 +465,70 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
             }
         },
         {
+            key: "safeConvertToSticker",
+            value: function safeConvertToSticker(Jid, message, from, args) {
+                var _this = this;
+                return _this.convertToSticker(Jid, message, from, args).catch(function(err) {
+                    _this.client.logger.error(err);
+                    return _this.client.safeSend(Jid, {
+                        text: stickerFailureMessage(err)
+                    }, {
+                        quoted: from
+                    });
+                });
+            }
+        },
+        {
             key: "convertToSticker",
             value: function convertToSticker(Jid, message, from, args) {
                 var _this = this;
                 return _async_to_generator(function() {
-                    var _this_client_socket, _this_client_socket1, _this_client_socket2, convertingMessage, buffer, fileExtension, fileName, filePath, quality, stickerOptions, stickerBuffer, sticker, err;
+                    var _message_message_videoMessage_seconds, _message_message, _message_message_videoMessage, convertingMessage, videoSeconds, buffer, fileExtension, fileName, filePath, quality, stickerOptions, stickerBuffer, sticker, err;
                     return _ts_generator(this, function(_state) {
                         switch(_state.label){
                             case 0:
+                                videoSeconds = getMessageVideoSeconds(message);
+                                if (!(videoSeconds !== null && videoSeconds >= MAX_VIDEO_SECONDS)) return [
+                                    3,
+                                    2
+                                ];
+                                return [
+                                    4,
+                                    _this.client.safeSend(Jid, {
+                                        text: tooLongVideoMessage(videoSeconds)
+                                    }, {
+                                        quoted: from
+                                    })
+                                ];
+                            case 1:
+                                _state.sent();
+                                return [
+                                    2
+                                ];
+                            case 2:
                                 return [
                                     4,
                                     _this.client.safeSend(Jid, {
                                         text: "_Converting to sticker..._"
                                     })
                                 ];
-                            case 1:
+                            case 3:
                                 convertingMessage = _state.sent();
                                 filePath = undefined;
                                 _state.trys.push([
-                                    2,
-                                    10,
+                                    4,
+                                    12,
                                     ,
-                                    11
+                                    13
                                 ]);
                                 return [
                                     4,
-                                    downloadMediaMessage(message, "buffer", {}, {
+                                    promiseWithTimeout(downloadMediaMessage(message, "buffer", {}, {
                                         logger: _this.client.logger,
                                         reuploadRequest: _this.client.socket.updateMediaMessage.bind(_this.client.socket)
-                                    })
+                                    }), DOWNLOAD_TIMEOUT_MS, "Media download")
                                 ];
-                            case 2:
+                            case 4:
                                 buffer = _state.sent();
                                 fileExtension = GetMediaTypeFromBuffer(buffer);
                                 fileName = "".concat(Date.now(), ".").concat(fileExtension);
@@ -476,52 +544,56 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                 };
                                 return [
                                     4,
-                                    createSticker([
+                                    promiseWithTimeout(createSticker([
                                         filePath
                                     ], _object_spread({
                                         quality: quality
-                                    }, stickerOptions))
-                                ];
-                            case 3:
-                                stickerBuffer = _state.sent();
-                                _state.label = 4;
-                            case 4:
-                                if (!(stickerBuffer.length >= 1000000)) return [
-                                    3,
-                                    6
-                                ];
-                                quality -= 10;
-                                return [
-                                    4,
-                                    createSticker([
-                                        filePath
-                                    ], _object_spread({
-                                        quality: quality
-                                    }, stickerOptions))
+                                    }, stickerOptions)), STICKER_TIMEOUT_MS, "Sticker conversion")
                                 ];
                             case 5:
                                 stickerBuffer = _state.sent();
+                                _state.label = 6;
+                            case 6:
+                                if (!(stickerBuffer.length >= 1000000)) return [
+                                    3,
+                                    8
+                                ];
+                                if (!(quality > 10)) {
+                                    throw new Error("Sticker file is too large to send on WhatsApp.");
+                                }
+                                quality -= 10;
+                                return [
+                                    4,
+                                    promiseWithTimeout(createSticker([
+                                        filePath
+                                    ], _object_spread({
+                                        quality: quality
+                                    }, stickerOptions)), STICKER_TIMEOUT_MS, "Sticker conversion")
+                                ];
+                            case 7:
+                                stickerBuffer = _state.sent();
                                 return [
                                     3,
-                                    4
+                                    6
                                 ];
-                            case 6:
+                            case 8:
                                 sticker = {
                                     sticker: stickerBuffer
                                 };
                                 unlinkSync(filePath);
+                                filePath = undefined;
                                 return [
                                     4,
                                     _this.client.safeSend(Jid, sticker, {
                                         quoted: from
                                     })
                                 ];
-                            case 7:
+                            case 9:
                                 _state.sent();
                                 return [
                                     2
                                 ];
-                            case 10:
+                            case 12:
                                 err = _state.sent();
                                 _this.client.logger.error(err);
                                 if (filePath) {
@@ -532,12 +604,12 @@ var StickerCommand = /*#__PURE__*/ function(Command) {
                                 return [
                                     4,
                                     _this.client.safeSend(Jid, {
-                                        text: "Failed to create sticker. Please try again with a shorter video or smaller image."
+                                        text: stickerFailureMessage(err)
                                     }, {
                                         quoted: from
                                     })
                                 ];
-                            case 11:
+                            case 13:
                                 _state.sent();
                                 return [
                                     2
